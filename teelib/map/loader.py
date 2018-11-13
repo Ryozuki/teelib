@@ -4,6 +4,7 @@ from .teeworlds_map import TeeworldsMap
 from .util import get_int
 from .item import Item, ItemType
 from typing import List
+from .items import *
 import zlib
 
 
@@ -23,7 +24,7 @@ def load(path: str):
         raise ValueError("The map header is not valid.")
 
     if not (2 < version_header.version < 5):
-        raise NotImplementedError("The map version is not complatible: {0}".format(version_header.version))
+        raise NotImplementedError("The map version is not compatible: {0}".format(version_header.version))
 
     header = Header(
         get_int(header_buf[0:]),
@@ -112,4 +113,33 @@ def load(path: str):
         for x in range(len(map_data)):
             assert len(map_data[x]) == data_sizes[x], "Data length not equal to data_sizes on index: {0}".format(x)
 
-    return TeeworldsMap(version_header, header)
+    def get_type(_type: int):
+        for i in item_types:
+            if i.type_id == _type:
+                return i
+
+    def find_item_index(_type: int, id: int):
+        itemtype = get_type(_type)
+        for i in range(itemtype.num):
+            if items[itemtype.start + i].id == id:
+                return itemtype.start + i
+
+    def find_item(_type: int, id: int):
+        index = find_item_index(_type, id)
+        return items[index]
+
+    # Load Version Item
+    version_item = VersionItem(find_item(MAPITEMTYPE_VERSION, 0).item_data)
+
+    # Load stuff
+    map_info = None
+
+    if version_item.version == 1:
+        info_type = get_type(MAPITEMTYPE_INFO)
+        for x in range(info_type.start, info_type.start + info_type.num):
+            if items[x].id != 0:
+                continue
+
+            map_info = InfoItem(items[x].item_data, map_data)
+
+    return TeeworldsMap(version_header, header, version_item, map_info)

@@ -5,7 +5,7 @@ class Item:
     def __init__(self, buffer: bytearray):
         itemtype = get_int(buffer)
         self.size = get_int(buffer[4:])
-        self.item_data = get_int(buffer[8:8 + self.size])
+        self.item_data = buffer[8:8 + self.size]
         # type_id might not be accurate, TODO: make uuid
         # datafile.cppL445
         self.type_id = (itemtype >> 16) & 0xffff
