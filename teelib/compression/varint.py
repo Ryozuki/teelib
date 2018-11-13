@@ -2,8 +2,16 @@
 Variable integer compression.
 """
 
+from typing import Tuple
 
-def compress(num: int) -> bytes:
+
+def compress(num: int) -> bytearray:
+    """
+    Compresses a integer into a variable integer inside a bytearray.
+
+    :param num: The integer to compress.
+    :return: A bytearray containing the variable integer.
+    """
     sign = num < 0
     out = bytearray(1)
 
@@ -36,5 +44,23 @@ def compress(num: int) -> bytes:
     return out
 
 
-def decompress(buf: bytes) -> int:
-    pass
+def decompress(buf: bytearray) -> Tuple[int, int]:
+    """
+    Decompresses a single variable int from a buffer.
+
+    :param buf: The buffer sliced so that index 0 is the start of the variable int.
+    :return: The integer and the length in the bytearray
+    """
+    index = 0
+    sign = (buf[index] >> 6) & 1
+    extended = (buf[index] >> 7) == 1
+    out = buf[index] & 0b00111111
+    while extended:
+        index += 1
+        if index > 4:
+            break
+        extended = (buf[index] >> 7) == 1
+        out |= (buf[index] & 0b01111111) << (6 + 7 * (index - 1))
+
+    out ^= - sign
+    return out, index + 1
