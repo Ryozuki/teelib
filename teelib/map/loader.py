@@ -59,9 +59,6 @@ def load(path: str):
 
     data_buffer = data[current_index:current_index + header.data_size]
     current_index += header.data_size
-    print(current_index)
-    print(header.size + 28 + 8)
-    print(header.size + 28 + 8 - current_index)
     # ------------------------
     # End loading buffers.
     # ------------------------
