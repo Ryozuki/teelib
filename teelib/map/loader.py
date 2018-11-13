@@ -3,6 +3,8 @@ from .header import Header
 from .teeworlds_map import TeeworldsMap
 from .util import get_int
 from .item import Item, ItemType
+from typing import List
+import zlib
 
 
 def load(path: str):
@@ -35,25 +37,82 @@ def load(path: str):
 
     current_index = 8 + 28
 
-    # Load everything.
-    item_types_buf = data[current_index:current_index + header.num_item_types]
-    current_index += header.num_item_types
+    # ------------------------
+    # Load buffers.
+    # ------------------------
+    item_types_buf = data[current_index:current_index + 12 * header.num_item_types]
+    current_index += 12 * header.num_item_types
 
-    item_offsets_buf = data[current_index:current_index + header.num_items]
-    current_index += header.num_items
+    item_offsets_buf = data[current_index:current_index + 4 * header.num_items]
+    current_index += 4 * header.num_items
 
-    data_offsets = data[current_index:current_index + header.num_data]
-    current_index += header.num_data
+    data_offsets_buf = data[current_index:current_index + 4 * header.num_data]
+    current_index += 4 * header.num_data
 
-    _data_sizes = None
+    data_sizes_buf = bytearray()
     if version_header.version == 4:
-        _data_sizes = data[current_index:current_index + header.num_data]
-        current_index += header.num_items
+        data_sizes_buf = data[current_index:current_index + 4 * header.num_data]
+        current_index += 4 * header.num_data
 
     items_buffer = data[current_index:current_index + header.item_size]
     current_index += header.item_size
 
     data_buffer = data[current_index:current_index + header.data_size]
     current_index += header.data_size
+    print(current_index)
+    print(header.size + 28 + 8)
+    print(header.size + 28 + 8 - current_index)
+    # ------------------------
+    # End loading buffers.
+    # ------------------------
+
+    # ------------------------
+    # Parse offsets and sizes.
+    # ------------------------
+    item_offsets: List[int] = []
+    for x in range(header.num_items):
+        item_offsets.append(get_int(item_offsets_buf[x * 4:]))
+
+    data_offsets: List[int] = []
+    for x in range(header.num_data):
+        data_offsets.append(get_int(data_offsets_buf[x * 4:]))
+
+    data_sizes: List[int] = []
+    if version_header.version == 4:
+        for x in range(header.num_data):
+            data_sizes.append(get_int(data_sizes_buf[x * 4:]))
+    # ------------------------
+    # End parsing offsets and sizes.
+    # ------------------------
+
+    item_types: List[ItemType] = []
+    for x in range(header.num_item_types):
+        item_types.append(ItemType(item_types_buf[x * 12:]))
+
+    assert len(item_types) == header.num_item_types, "Error parsing: Length of item_types is not " \
+                                                     "equal to header.num_item_types"
+
+    items: List[Item] = []
+    for x in range(header.num_items):
+        items.append(Item(items_buffer[item_offsets[x]:]))
+
+    assert len(items) == header.num_items, "Error parsing: Length of items is not equal to header.num_items"
+
+    map_data: List[bytes] = []
+    for x in range(header.num_data):
+        if len(data_offsets) >= x:
+            buffer = data_buffer[data_offsets[x]:]
+        else:
+            buffer = data_buffer[data_offsets[x]:data_offsets[x] + data_offsets[x + 1]]
+
+        if version_header.version == 4:
+            result = zlib.decompress(buffer)
+        else:
+            result = bytes(buffer)
+        map_data.append(result)
+
+    if __debug__:
+        for x in range(len(map_data)):
+            assert len(map_data[x]) == data_sizes[x], "Data length not equal to data_sizes on index: {0}".format(x)
 
     return TeeworldsMap(version_header, header)

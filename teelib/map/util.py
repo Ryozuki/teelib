@@ -1,2 +1,2 @@
-def get_int(buf, endian='little', signed=True):
-    return int.from_bytes(buf[:4], endian, signed=signed)
+def get_int(buf, endian='little', signed=True, num_bytes=4):
+    return int.from_bytes(buf[:num_bytes], endian, signed=signed)
